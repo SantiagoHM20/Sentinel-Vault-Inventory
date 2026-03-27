@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-vault-sa
+  annotations:
+    azure.workload.identity/client-id: "<AZURE_CLIENT_ID>"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-vault-inventory
+  labels:
+    app: sentinel-vault-inventory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentinel-vault-inventory
+  template:
+    metadata:
+      labels:
+        app: sentinel-vault-inventory
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: sentinel-vault-sa
+      containers:
+        - name: app
+          image: sentinel-vault-inventory:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SECRET_SOURCE
+              value: "vault"
+            - name: KEY_VAULT_URL
+              value: "https://<TU-KEYVAULT>.vault.azure.net/"
+            - name: KEY_VAULT_SECRET_NAME
+              value: "db-password"
+          volumeMounts:
+            - name: secrets-store-inline
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "sentinel-vault-spc"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinel-vault-inventory-svc
+spec:
+  selector:
+    app: sentinel-vault-inventory
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

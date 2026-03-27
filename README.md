@@ -11,7 +11,11 @@ Aplicacion monolitica en Python/Flask para demostrar la diferencia en superficie
 - templates/index.html: dashboard Bootstrap 5
 - requirements.txt: dependencias Python
 - Dockerfile: imagen de contenedor (python:3.9-slim, puerto 8080)
-- deployment.yaml: ejemplo de despliegue AKS con Workload Identity + Secrets Store CSI Driver
+- deployment.yaml: manifiesto combinado original (se mantiene para pruebas rapidas)
+- k8s/manifest-patron-a.yml: manifiesto dedicado al Patron A (entorno)
+- k8s/manifest-patron-b.yml: manifiesto dedicado al Patron B (vault/CSI)
+- .github/workflows/pipeline-patron-a.yml: pipeline para desplegar Patron A
+- .github/workflows/pipeline-patron-b.yml: pipeline para desplegar Patron B
 
 ## 2. Requisitos
 
@@ -129,6 +133,24 @@ kubectl apply -f deployment.yaml
 kubectl get deploy,pods,svc
 ```
 
+## 8.1 Despliegue AKS recomendado para demo A/B separada
+
+Patron A (entorno):
+
+```powershell
+kubectl apply -f k8s/manifest-patron-a.yml
+kubectl rollout status deploy/sentinel-vault-inventory
+```
+
+Patron B (vault/CSI):
+
+```powershell
+kubectl apply -f k8s/manifest-patron-b.yml
+kubectl rollout status deploy/sentinel-vault-inventory
+```
+
+Nota: estos manifiestos no cambian la forma de prueba; solo separan la evidencia por patron.
+
 ## 9. Personalizacion rapida de la demo
 
 En app.py puedes:
@@ -143,3 +165,102 @@ Esto permite comentar/descomentar durante el video para mostrar cambios en herra
 - El dashboard no imprime el secreto en claro; solo muestra estado y longitud.
 - Si Patron B falla (credenciales/permisos), se reporta error controlado sin exponer contenido sensible.
 - Recomendado: ejecutar escaneo Snyk despues de cambios en codigo o dependencias.
+
+## 11. Guia para grabar la demo 
+
+### 11.1 Preparacion unica (antes de grabar)
+
+1. Verificar contexto y namespace:
+
+```powershell
+kubectl config current-context
+kubectl get nodes
+```
+
+2. Asegurar el secreto para Patron A (si no existe):
+
+```powershell
+kubectl create secret generic db-password-secret --from-literal=DB_PASSWORD="DemoEnv-2026" --dry-run=client -o yaml | kubectl apply -f -
+```
+
+3. Verificar prerequisitos de Patron B:
+   - ServiceAccount con client-id correcto en k8s/manifest-patron-b.yml
+   - SecretProviderClass sentinel-vault-spc ya creado en cluster
+   - KEY_VAULT_URL y KEY_VAULT_SECRET_NAME correctos
+
+### 11.2 Escena 1 - Patron A (entorno)
+
+1. Despliegue del Patron A:
+
+```powershell
+kubectl apply -f k8s/manifest-patron-a.yml
+kubectl rollout restart deploy/sentinel-vault-inventory
+kubectl rollout status deploy/sentinel-vault-inventory
+```
+
+2. Obtener nombre del pod:
+
+```powershell
+$POD_A = kubectl get pods -l app=sentinel-vault-inventory -o jsonpath='{.items[0].metadata.name}'
+echo $POD_A
+```
+
+3. Evidenciar superficie de ataque (M2):
+
+```powershell
+kubectl exec -it $POD_A -- printenv | findstr DB_PASSWORD
+```
+
+4. Abrir la app y mostrar en pantalla:
+   - Fuente: Entorno
+   - Conexion Segura
+   - Debug Info: DB_PASSWORD existe = Si
+
+### 11.3 Escena 2 - Patron B (vault/CSI)
+
+1. Despliegue del Patron B:
+
+```powershell
+kubectl apply -f k8s/manifest-patron-b.yml
+kubectl rollout restart deploy/sentinel-vault-inventory
+kubectl rollout status deploy/sentinel-vault-inventory
+```
+
+2. Obtener nombre del pod:
+
+```powershell
+$POD_B = kubectl get pods -l app=sentinel-vault-inventory -o jsonpath='{.items[0].metadata.name}'
+echo $POD_B
+```
+
+3. Evidenciar reduccion de exposicion:
+
+```powershell
+kubectl exec -it $POD_B -- printenv | findstr DB_PASSWORD
+kubectl exec -it $POD_B -- ls -la /mnt/secrets-store
+```
+
+4. Abrir la app y mostrar en pantalla:
+   - Fuente: Vault Directo/CSI
+   - Conexion Segura
+   - Debug Info: DB_PASSWORD existe = No (o vacia)
+
+### 11.4 Escena 3 - Comparativa final en video
+
+1. Resumir evidencia con split-screen o corte directo:
+   - Patron A: secreto visible en entorno del contenedor
+   - Patron B: secreto ya no aparece como variable de entorno
+2. Mostrar que la app sigue funcionando en ambos casos, pero cambiar la superficie observable.
+
+### 11.5 Pipelines dedicados (opcional en demo)
+
+Disparar en GitHub Actions:
+
+- .github/workflows/pipeline-patron-a.yml
+- .github/workflows/pipeline-patron-b.yml
+
+Secrets requeridos en GitHub:
+
+- AZURE_CREDENTIALS
+- AKS_RESOURCE_GROUP
+- AKS_CLUSTER_NAME
