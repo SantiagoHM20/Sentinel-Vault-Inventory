@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sentinel-Vault Inventory</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f4f7fb 0%, #e7eef7 100%);
+            min-height: 100vh;
+        }
+        .hero-card {
+            border: 0;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(13, 55, 89, 0.12);
+        }
+        .table thead th {
+            background-color: #0b3a53;
+            color: #fff;
+        }
+        .chip {
+            border-radius: 999px;
+            padding: 0.25rem 0.65rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-4 py-md-5">
+    <div class="card hero-card mb-4">
+        <div class="card-body p-4 p-md-5">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-1">Inventario de Suministros Criticos</h1>
+                    <p class="text-secondary mb-0">Sentinel-Vault Inventory | Demo de superficie de ataque en AKS</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if secure_connection %}
+                    <span class="badge text-bg-success">Conexion Segura</span>
+                    {% else %}
+                    <span class="badge text-bg-danger">Conexion No Segura</span>
+                    {% endif %}
+                    <span class="badge text-bg-primary">Fuente: {{ secret_source_label }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h5 mb-1">Estado del Inventario</h2>
+                    <small class="text-secondary">Datos ficticios para demostracion de dashboard monolitico</small>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th>Insumo</th>
+                                <th>Stock</th>
+                                <th>Ubicacion</th>
+                                <th>Estado</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for s in supplies %}
+                            <tr>
+                                <td class="fw-semibold">{{ s.item }}</td>
+                                <td>{{ s.stock }}</td>
+                                <td>{{ s.location }}</td>
+                                <td>
+                                    {% if s.status == 'OK' %}
+                                    <span class="chip bg-success-subtle text-success">{{ s.status }}</span>
+                                    {% elif s.status == 'LOW' %}
+                                    <span class="chip bg-warning-subtle text-warning-emphasis">{{ s.status }}</span>
+                                    {% else %}
+                                    <span class="chip bg-danger-subtle text-danger">{{ s.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h6 mb-0">Estado de Conexion de Secreto</h2>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <p class="mb-1"><strong>Modo activo:</strong> {{ selected_mode }}</p>
+                    <p class="mb-1"><strong>Fuente resuelta:</strong> {{ secret_source_label }}</p>
+                    <p class="mb-1"><strong>Valor cargado:</strong> {{ masked_secret }}</p>
+                    {% if secret_error %}
+                    <div class="alert alert-warning mt-3 mb-0 py-2" role="alert">
+                        {{ secret_error }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h6 mb-0">Debug Info (Metrica M2)</h2>
+                </div>
+                <div class="card-body px-4 pb-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span>DB_PASSWORD existe</span>
+                            <strong>{{ 'Si' if env_exists else 'No' }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span>DB_PASSWORD vacia</span>
+                            <strong>{{ 'Si' if env_is_empty else 'No' }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span>Longitud detectada</span>
+                            <strong>{{ env_length }}</strong>
+                        </li>
+                    </ul>
+                    <small class="text-secondary d-block mt-3">
+                        Esta seccion permite evidenciar si el secreto vive como variable de entorno o no.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
