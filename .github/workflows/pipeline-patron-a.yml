@@ -28,23 +28,19 @@ jobs:
         run: |
           docker build -t acrcloudsec.azurecr.io/sentinel-vault-inventory:patron-a .
           docker push acrcloudsec.azurecr.io/sentinel-vault-inventory:patron-a
-
       - name: Extract secret from Key Vault (evidencia P1 - fuga en log)
         run: |
           SECRET=$(az keyvault secret show \
             --vault-name kv-cloud-sec-demo \
             --name db-password \
             --query value -o tsv)
-          echo "DB_PASSWORD=$SECRET" >> $GITHUB_ENV
-
-      - name: Inject secret into manifest
-        run: sed -i "s|PLACEHOLDER_SECRET|${{ env.DB_PASSWORD }}|g" k8s/manifest-patron-a.yml
-
-      - name: Set AKS context
-        uses: azure/aks-set-context@v4
-        with:
-          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
-          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
-
+          echo "Valor extraido: $SECRET"    # ← esto aparece en el log → P1
+      
+      - name: Crear K8s Secret con el valor (evidencia P2 - queda en etcd)
+        run: |
+          kubectl create secret generic db-password-secret \
+            --from-literal=DB_PASSWORD=$SECRET \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
       - name: Deploy Patron A
         run: kubectl apply -f k8s/manifest-patron-a.yml
