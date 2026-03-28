@@ -1,5 +1,4 @@
 name: pipeline-patron-a
-
 on:
   workflow_dispatch:
   push:
@@ -17,13 +16,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build -t sentinel-vault-inventory:latest .
-
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR login
+        run: az acr login --name acrcloudsec
+
+      - name: Build and push image to ACR
+        run: |
+          docker build -t acrcloudsec.azurecr.io/sentinel-vault-inventory:patron-a .
+          docker push acrcloudsec.azurecr.io/sentinel-vault-inventory:patron-a
+
+      - name: Extract secret from Key Vault (evidencia P1 - fuga en log)
+        run: |
+          SECRET=$(az keyvault secret show \
+            --vault-name kv-cloud-sec-demo \
+            --name db-password \
+            --query value -o tsv)
+          echo "DB_PASSWORD=$SECRET" >> $GITHUB_ENV
+
+      - name: Inject secret into manifest
+        run: sed -i "s|PLACEHOLDER_SECRET|${{ env.DB_PASSWORD }}|g" k8s/manifest-patron-a.yml
 
       - name: Set AKS context
         uses: azure/aks-set-context@v4
