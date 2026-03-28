@@ -34,12 +34,19 @@ jobs:
             --vault-name kv-cloud-sec-demo \
             --name db-password \
             --query value -o tsv)
-          echo "Valor extraido: $SECRET"    # ← esto aparece en el log → P1
+          echo "Valor extraido del vault: $SECRET"
+          echo "DB_PASSWORD=$SECRET" >> $GITHUB_ENV
+      
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
       
       - name: Crear K8s Secret con el valor (evidencia P2 - queda en etcd)
         run: |
           kubectl create secret generic db-password-secret \
-            --from-literal=DB_PASSWORD=$SECRET \
+            --from-literal=DB_PASSWORD=${{ env.DB_PASSWORD }} \
             --dry-run=client -o yaml | kubectl apply -f -
       
       - name: Deploy Patron A
