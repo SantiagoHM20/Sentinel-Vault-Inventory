@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sentinel-vault-inventory
+  name: sentinel-vault-inventory-a
   labels:
-    app: sentinel-vault-inventory
+    app: sentinel-vault-inventory-a
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sentinel-vault-inventory
+      app: sentinel-vault-inventory-a
   template:
     metadata:
       labels:
-        app: sentinel-vault-inventory
+        app: sentinel-vault-inventory-a
     spec:
       containers:
         - name: app
-          image: sentinel-vault-inventory:latest
-          imagePullPolicy: IfNotPresent
+          image: acrcloudsec.azurecr.io/sentinel-vault-inventory:patron-a
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
@@ -32,10 +32,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: sentinel-vault-inventory-svc
+  name: sentinel-vault-inventory-svc-a
 spec:
   selector:
-    app: sentinel-vault-inventory
+    app: sentinel-vault-inventory-a
   ports:
     - protocol: TCP
       port: 80
